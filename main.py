@@ -16,6 +16,7 @@ import hmac
 import json
 import os
 import secrets
+import ssl as ssl_module
 import time
 from contextlib import contextmanager
 from pathlib import Path
@@ -93,14 +94,34 @@ class _ConnWrapper:
 
 
 @contextmanager
+def _ssl_args():
+    """Aiven (dan kebanyakan MySQL cloud) mewajibkan koneksi SSL.
+    Aktifkan dengan DB_SSL=true. Kalau kamu punya CA certificate dari Aiven,
+    tempel isi file .pem-nya ke env var DB_SSL_CA supaya verifikasinya ketat;
+    kalau tidak diisi, koneksi tetap terenkripsi tapi tanpa verifikasi sertifikat
+    (cukup untuk demo)."""
+    if os.getenv("DB_SSL", "false").lower() not in {"1", "true", "yes"}:
+        return None
+    ca_content = os.getenv("DB_SSL_CA")
+    if ca_content:
+        ca_path = Path("/tmp/aiven-ca.pem")
+        if not ca_path.exists():
+            ca_path.write_text(ca_content)
+        return ssl_module.create_default_context(cafile=str(ca_path))
+    ctx = ssl_module.create_default_context()
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl_module.CERT_NONE
+    return ctx
+
+
 def db():
     try:
         raw = pymysql.connect(
             host=DB_HOST, port=DB_PORT, user=DB_USER, password=DB_PASSWORD,
             database=DB_NAME, cursorclass=pymysql.cursors.DictCursor,
-            autocommit=False, charset="utf8mb4",
+            autocommit=False, charset="utf8mb4", ssl=_ssl_args(),
         )
-    except pymysql.err.OperationalError as exc:
+    except (pymysql.err.OperationalError, ssl_module.SSLError, OSError) as exc:
         raise RuntimeError(
             f"Tidak bisa konek ke MySQL di {DB_HOST}:{DB_PORT} (database '{DB_NAME}'). "
             f"Pastikan server MySQL (DBngin) sudah jalan, database sudah dibuat, "
@@ -476,7 +497,16 @@ def init_db():
 
 @app.on_event("startup")
 def start():
-    init_db()
+    try:
+        init_db()
+    except Exception as exc:  # noqa: BLE001
+        # Di lingkungan serverless (Vercel), kalau init_db() gagal (mis. DB belum
+        # bisa dihubungi) dan exception dibiarkan lolos, seluruh ASGI app akan
+        # dianggap gagal start ("Application startup failed") dan semua request
+        # (termasuk request statis) ikut kena 500 tanpa pesan yang jelas.
+        # Jadi di sini errornya cuma dicatat; percobaan konek berikutnya tetap
+        # terjadi otomatis tiap kali endpoint /api/* dipanggil (lewat db()).
+        print(f"[startup] init_db() gagal, akan dicoba lagi saat ada request: {exc}")
 
 
 # ---------------------------------------------------------------------------

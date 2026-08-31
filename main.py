@@ -481,10 +481,10 @@ def init_db():
         # Instalasi lama: kolom email semula NOT NULL — perlu dilonggarkan jadi
         # boleh kosong supaya akun tanpa email (login pakai username) bisa dibuat.
         email_col = con.execute(
-            "SELECT is_nullable FROM information_schema.columns "
+            "SELECT is_nullable AS is_nullable FROM information_schema.columns "
             "WHERE table_schema = DATABASE() AND table_name = 'users' AND column_name = 'email'"
         ).fetchone()
-        if email_col and email_col["is_nullable"] == "NO":
+        if email_col and str(email_col["is_nullable"]).upper() == "NO":
             con.execute("ALTER TABLE users MODIFY email VARCHAR(190) NULL")
 
         email = os.getenv("SUPER_EDITOR_EMAIL", "admin@jakut.go.id")

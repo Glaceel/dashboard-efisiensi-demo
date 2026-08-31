@@ -93,7 +93,6 @@ class _ConnWrapper:
         self._raw.close()
 
 
-@contextmanager
 def _ssl_args():
     """Aiven (dan kebanyakan MySQL cloud) mewajibkan koneksi SSL.
     Aktifkan dengan DB_SSL=true. Kalau kamu punya CA certificate dari Aiven,
@@ -114,6 +113,7 @@ def _ssl_args():
     return ctx
 
 
+@contextmanager
 def db():
     try:
         raw = pymysql.connect(

@@ -83,6 +83,31 @@ dibuatkan tabel serta form-nya. Kabari kalau mau lanjutkan bagian ini.
 ## Struktur tabel MySQL
 
 Dibuat otomatis saat aplikasi start: `buildings`, `users`, `building_info`,
-`electricity_consumption`, `water_consumption`, `ebt_production`. Detail
-kolomnya ada di fungsi `init_db()` pada `main.py`.
-# dashboard-efisiensi-demo
+`electricity_consumption`, `water_consumption`, `ebt_production`,
+`building_equipment`, `building_ac_systems`, `building_lighting`,
+`building_notes`, `app_settings`. Detail kolomnya ada di fungsi `init_db()`
+pada `app/database.py`.
+
+## Struktur Proyek
+
+```
+main.py                  # Entry point — hanya setup FastAPI & wiring router
+app/
+  database.py             # Koneksi MySQL (PyMySQL), konfigurasi, init_db()
+  auth.py                 # Hashing password, token akses, dependency current_user
+  schemas.py               # Model Pydantic request/response
+  routers/
+    auth.py                # /api/health, /api/auth/*
+    buildings.py            # /api/buildings/* (gedung, listrik, air, EBT, inventaris)
+    dashboard.py             # /api/dashboard/summary
+    settings.py              # /api/settings/logo
+    users.py                 # /api/users/*
+static/                  # Frontend (index.html, script.js, styles.css)
+uploads/
+  buildings/               # Foto gedung yang diunggah
+  branding/                 # Logo instansi yang diunggah
+```
+
+Menambah endpoint baru cukup dilakukan di file router yang relevan (atau
+buat router baru di `app/routers/`), lalu daftarkan lewat
+`app.include_router(...)` di `main.py`.
